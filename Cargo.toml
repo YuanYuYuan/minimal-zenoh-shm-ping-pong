@@ -1,0 +1,25 @@
+[package]
+name = "minimal-zenoh-shm-ping-pong"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zenoh = { version = "0.11.0", default-features = false, features = ["transport_unixpipe", "shared-memory"] }
+
+# Enable this and uncomment the lines in source codes to visualize the log
+# zenoh-util = { version = "0.11.0" }
+
+[[bin]]
+name = "z_pong"
+path = "src/bin/z_pong.rs"
+
+[[bin]]
+name = "z_ping"
+path = "src/bin/z_ping.rs"
+
+# [profile.release]
+# opt-level = "z"
+# lto = true
+# codegen-units = 1
+# panic = "abort"
+# strip = true

@@ -1,0 +1,17 @@
+{
+  mode: "peer",
+  listen: {
+    endpoints: ["unixpipe/example-pipe"]
+  },
+  transport: {
+    unicast: {
+      lowlatency: true,
+      qos: {
+        enabled: false,
+      },
+    },
+    shared_memory: {
+      enabled: true,
+    },
+  }
+}
