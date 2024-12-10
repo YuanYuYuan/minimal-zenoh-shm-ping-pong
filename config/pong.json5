@@ -3,6 +3,11 @@
   listen: {
     endpoints: ["unixpipe/example-pipe"]
   },
+  scouting: {
+    multicast: {
+      enabled: false,
+    }
+  },
   transport: {
     unicast: {
       lowlatency: true,

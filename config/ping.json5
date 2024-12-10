@@ -1,7 +1,12 @@
 {
   mode: "peer",
   connect: {
-    endpoints: ["unixpipe/example-pipe"]
+    endpoints: ["unixpipe/example-pipe"],
+  },
+  scouting: {
+    multicast: {
+      enabled: false,
+    }
   },
   transport: {
     unicast: {
