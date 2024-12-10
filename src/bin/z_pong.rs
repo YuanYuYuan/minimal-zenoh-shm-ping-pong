@@ -1,5 +1,3 @@
-use core::panic;
-
 //
 // Copyright (c) 2023 ZettaScale Technology
 //
@@ -13,15 +11,15 @@ use core::panic;
 // Contributors:
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
-use zenoh::config::Config;
-use zenoh::prelude::sync::*;
-use zenoh::publication::CongestionControl;
+use zenoh::{
+    Wait,
+    config::Config,
+    qos::CongestionControl,
+    key_expr::KeyExpr,
+};
 
 
 fn main() {
-    // // initiate logging
-    // zenoh_util::try_init_log_from_env();
-
     let args: Vec<_> = std::env::args().collect();
     let config = match args.len() {
         1 => Config::default(),
@@ -29,24 +27,24 @@ fn main() {
         _ => panic!("Invalid arguments. Use z_pong [config_file].")
     };
 
-    let session = zenoh::open(config).res().unwrap().into_arc();
+    let session = zenoh::open(config).wait().unwrap();
 
     // The key expression to read the data from
-    let key_expr_ping = keyexpr::new("test/ping").unwrap();
+    let key_expr_ping = KeyExpr::new("test/ping").unwrap();
 
     // The key expression to echo the data back
-    let key_expr_pong = keyexpr::new("test/pong").unwrap();
+    let key_expr_pong = KeyExpr::new("test/pong").unwrap();
 
     let publisher = session
         .declare_publisher(key_expr_pong)
         .congestion_control(CongestionControl::Block)
-        .res()
+        .wait()
         .unwrap();
 
     let _sub = session
         .declare_subscriber(key_expr_ping)
-        .callback(move |sample| publisher.put(sample.value).res().unwrap())
-        .res()
+        .callback(move |sample| publisher.put(sample.payload().clone()).wait().unwrap())
+        .wait()
         .unwrap();
     std::thread::park();
 }

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-zenoh = { version = "0.11.0", default-features = false, features = ["transport_unixpipe", "shared-memory"] }
+zenoh = { version = "1.0.4", default-features = false, features = ["transport_unixpipe", "shared-memory", "unstable"] }
 
 # Enable this and uncomment the lines in source codes to visualize the log
 # zenoh-util = { version = "0.11.0" }

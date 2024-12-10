@@ -12,19 +12,21 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 use std::time::Instant;
-use zenoh::config::Config;
-use zenoh::prelude::sync::*;
-use zenoh::publication::CongestionControl;
-use zenoh::shm::SharedMemoryManager;
+use zenoh::{
+    Wait,
+    config::Config,
+    qos::CongestionControl,
+    key_expr::KeyExpr,
+    shm::{
+        ZShm, BlockOn, GarbageCollect, PosixShmProviderBackend, ShmProviderBuilder, POSIX_PROTOCOL_ID,
+    },
+};
 
-const N_SAMPLES: usize = 100;
+const N_SAMPLES: usize = 10000;
 const WARMUP_SECS: f64 = 1.0;
 const SHM_SIZE: usize = 32 * 1024 * 1024;  // Set at most 32 MiB by default
 
 fn main() {
-    // // initiate logging
-    // zenoh_util::try_init_log_from_env();
-
     let args: Vec<_> = std::env::args().collect();
     let (size, config) = match args.len() {
         2 => (args[1].parse::<usize>().unwrap(), Config::default()),
@@ -32,27 +34,42 @@ fn main() {
         _ => panic!("Invalid arguments. Use z_ping <payload_size(bytes)> [config_file].")
     };
 
-    let session = zenoh::open(config).res().unwrap();
+    let session = zenoh::open(config).wait().unwrap();
 
-    let id = session.zid();
-    let mut shm = SharedMemoryManager::make(id.to_string(), SHM_SIZE).unwrap();
-    let mut buf = shm.alloc(size).unwrap();
-    let bs = unsafe { buf.as_mut_slice() };
-    for (i, b) in bs.iter_mut().enumerate() {
-        *b = (i % 10) as u8;
-    }
+    let backend = PosixShmProviderBackend::builder()
+        .with_size(SHM_SIZE)
+        .unwrap()
+        .wait()
+        .unwrap();
+    let provider = ShmProviderBuilder::builder()
+        .protocol_id::<POSIX_PROTOCOL_ID>()
+        .backend(backend)
+        .wait();
 
-    // The key expression to publish data on
-    let key_expr_ping = keyexpr::new("test/ping").unwrap();
+    let sbuf: ZShm = {
+        let layout = provider.alloc(size).into_layout().unwrap();
+        let mut sbuf = layout
+            .alloc()
+            .with_policy::<BlockOn<GarbageCollect>>()
+            .wait()
+            .unwrap();
+        for (i, b) in sbuf.iter_mut().enumerate() {
+            *b = (i % 10) as u8;
+        }
+        sbuf.into()
+    };
 
-    // The key expression to wait the response back
-    let key_expr_pong = keyexpr::new("test/pong").unwrap();
+    // The key expwaitsion to publish data on
+    let key_expr_ping = KeyExpr::new("test/ping").unwrap();
 
-    let sub = session.declare_subscriber(key_expr_pong).res().unwrap();
+    // The key expwaitsion to wait the waitponse back
+    let key_expr_pong = KeyExpr::new("test/pong").unwrap();
+
+    let sub = session.declare_subscriber(key_expr_pong).wait().unwrap();
     let publisher = session
         .declare_publisher(key_expr_ping)
         .congestion_control(CongestionControl::Block)
-        .res()
+        .wait()
         .unwrap();
 
     let mut samples = Vec::with_capacity(N_SAMPLES);
@@ -62,14 +79,14 @@ fn main() {
     println!("Warming up for {warmup:?}...");
     let now = Instant::now();
     while now.elapsed() < warmup {
-        publisher.put(buf.clone()).res().unwrap();
+        publisher.put(sbuf.clone()).wait().unwrap();
 
         let _ = sub.recv();
     }
 
     for _ in 0..N_SAMPLES {
         let write_time = Instant::now();
-        publisher.put(buf.clone()).res().unwrap();
+        publisher.put(sbuf.clone()).wait().unwrap();
 
         let _ = sub.recv();
         let ts = write_time.elapsed().as_micros();
